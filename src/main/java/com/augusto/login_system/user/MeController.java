@@ -17,10 +17,15 @@ public class MeController {
     }
 
     @GetMapping
-    public ResponseEntity<?> me(Authentication auth) {
-        var user = meService.me(auth.getName());
-        // devolve sem passwordHash
-        return ResponseEntity.ok(new MeResponse(user.getId(), user.getName(), user.getEmail(), user.getCpf(), user.getRole()));
+    public ResponseEntity<MeResponse> me(Authentication auth) {
+        var user = meService.me(auth.getName()); // devolve sem passwordHash
+        return ResponseEntity.ok(new MeResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getCpf(),
+                user.getRole()
+        ));
     }
 
     @PostMapping("/change-password")

@@ -2,6 +2,7 @@ package com.augusto.login_system.user;
 
 import com.augusto.login_system.auth.dto.RegisterRequest;
 import com.augusto.login_system.common.DuplicateDataException;
+import com.augusto.login_system.common.EmailNormalizer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,15 +18,22 @@ public class UserService {
     }
 
     public void register(RegisterRequest req) {
-        if (repo.existsByEmail(req.email())) throw new DuplicateDataException("E-mail já cadastrado");
-        if (repo.existsByCpf(req.cpf())) throw new DuplicateDataException("CPF já cadastrado");
+        String email = EmailNormalizer.normalize(req.email());
 
-        var u = new User();
+        if (repo.existsByEmail(email)) {
+            throw new DuplicateDataException("E-mail já cadastrado");
+        }
+        if (repo.existsByCpf(req.cpf())) {
+            throw new DuplicateDataException("CPF já cadastrado");
+        }
+
+        User u = new User();
         u.setName(req.name());
-        u.setEmail(req.email().toLowerCase());
+        u.setEmail(email);
         u.setCpf(req.cpf());
         u.setRole(req.role());
         u.setPasswordHash(encoder.encode(req.password()));
+
         repo.save(u);
     }
 }

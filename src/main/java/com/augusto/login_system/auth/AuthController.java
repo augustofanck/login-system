@@ -1,14 +1,16 @@
 package com.augusto.login_system.auth;
 
-import com.augusto.login_system.auth.dto.*;
+import com.augusto.login_system.auth.dto.AuthResponse;
+import com.augusto.login_system.auth.dto.LoginRequest;
+import com.augusto.login_system.auth.dto.RegisterRequest;
+import com.augusto.login_system.common.EmailNormalizer;
 import com.augusto.login_system.security.JwtService;
 import com.augusto.login_system.user.UserRepository;
 import com.augusto.login_system.user.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.*;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -35,11 +37,12 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
-        Authentication auth = authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(req.email(), req.password())
+        String email = EmailNormalizer.normalize(req.email());
+        authManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, req.password())
         );
 
-        var user = userRepo.findByEmail(req.email().toLowerCase()).orElseThrow();
+        var user = userRepo.findByEmail(email).orElseThrow();
         var token = jwtService.generate(user.getEmail(), user.getRole().name());
 
         return ResponseEntity.ok(new AuthResponse(token));
