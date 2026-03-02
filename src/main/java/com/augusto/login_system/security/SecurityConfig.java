@@ -1,45 +1,58 @@
 package com.augusto.login_system.security;
 
-import java.nio.charset.StandardCharsets;
-import javax.crypto.spec.SecretKeySpec;
-
+import com.augusto.login_system.common.EmailNormalizer;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
-
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
-import org.springframework.core.convert.converter.Converter;
-import org.springframework.security.authentication.AbstractAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-
-import java.util.List;
-
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
+
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
 
-    @Value("${app.jwt.secret}")
+    @Value("${app.jwt.secret:${JWT_SECRET:}}")
     private String jwtSecret;
+
+    @Value("${app.cors.allowed-origins:*}")
+    private String corsAllowedOrigins;
+
+    @PostConstruct
+    void validateJwtSecret() {
+        if (jwtSecret == null || jwtSecret.isBlank() || jwtSecret.length() < 32) {
+            throw new IllegalStateException(
+                    "JWT secret inválido. Defina app.jwt.secret (ou JWT_SECRET) com pelo menos 32 caracteres."
+            );
+        }
+    }
 
     @Bean
     PasswordEncoder passwordEncoder() {
@@ -48,8 +61,12 @@ public class SecurityConfig {
 
     @Bean
     AuthenticationProvider authenticationProvider(UserDetailsService uds, PasswordEncoder encoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(uds);
+        UserDetailsService normalizedUds = username ->
+                uds.loadUserByUsername(EmailNormalizer.normalize(username));
+
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(normalizedUds);
         provider.setPasswordEncoder(encoder);
+
         return provider;
     }
 
@@ -72,8 +89,9 @@ public class SecurityConfig {
         http
                 .authenticationProvider(authProvider)
                 .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .headers(h -> h.frameOptions(fo -> fo.sameOrigin())) // H2 console
+                .headers(h -> h.frameOptions(fo -> fo.sameOrigin()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/auth/**",
@@ -81,12 +99,14 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/h2-console/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter()))
                 );
+
         return http.build();
     }
 
@@ -97,7 +117,33 @@ public class SecurityConfig {
             var authorities = (role == null)
                     ? List.<SimpleGrantedAuthority>of()
                     : List.of(new SimpleGrantedAuthority("ROLE_" + role));
-            return new JwtAuthenticationToken(jwt, authorities, jwt.getSubject());
+
+            // subject = email (normalizado)
+            String subject = EmailNormalizer.normalize(jwt.getSubject());
+            return new JwtAuthenticationToken(jwt, authorities, subject);
         };
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration cfg = new CorsConfiguration();
+
+        if (corsAllowedOrigins != null && corsAllowedOrigins.trim().equals("*")) {
+            cfg.addAllowedOriginPattern("*");
+        } else if (corsAllowedOrigins != null && !corsAllowedOrigins.isBlank()) {
+            Arrays.stream(corsAllowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isBlank())
+                    .forEach(cfg::addAllowedOrigin);
+        }
+
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        cfg.setExposedHeaders(List.of("Authorization"));
+        cfg.setAllowCredentials(false);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", cfg);
+        return source;
     }
 }
