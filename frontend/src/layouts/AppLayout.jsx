@@ -38,7 +38,7 @@ export default function AppLayout({ children }) {
 
           <nav className="hidden sm:flex items-center gap-2">
             <TopLink to="/home">Home</TopLink>
-            <TopLink to="/me/change-password">Trocar senha</TopLink>
+            <TopLink to="/change-password">Trocar senha</TopLink>
             {me?.role === "ADMIN" && <TopLink to="/admin/users">Admin</TopLink>}
           </nav>
 

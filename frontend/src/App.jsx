@@ -1,48 +1,34 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
 import ChangePassword from "./pages/ChangePassword";
 import AdminUsers from "./pages/AdminUsers";
+
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminRoute from "./routes/AdminRoute";
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-
+      {/* Públicas */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      <Route
-        path="/home"
-        element={
-          <ProtectedRoute>
-            <Home />
-          </ProtectedRoute>
-        }
-      />
+      {/* Protegidas por Login */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/home" element={<Home />} />
+        <Route path="/change-password" element={<ChangePassword />} />
 
-      <Route
-        path="/me/change-password"
-        element={
-          <ProtectedRoute>
-            <ChangePassword />
-          </ProtectedRoute>
-        }
-      />
+        {/* Protegidas + Admin */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin/users" element={<AdminUsers />} />
+        </Route>
+      </Route>
 
-      <Route
-        path="/admin/users"
-        element={
-          <AdminRoute>
-            <AdminUsers />
-          </AdminRoute>
-        }
-      />
-
-      <Route path="*" element={<p>404</p>} />
+      <Route path="/" element={<Navigate to="/home" replace />} />
+      <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
   );
 }

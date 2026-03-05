@@ -1,4 +1,5 @@
-const TOKEN_KEY = "auth_token";
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+const TOKEN_KEY = "token";
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -12,7 +13,6 @@ export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-// Erro padronizado pra UI
 export class ApiError extends Error {
   constructor(message, status, data) {
     super(message);
@@ -22,36 +22,70 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch(path, { method = "GET", body, token } = {}) {
-  const jwt = token ?? getToken();
+async function parseResponse(res) {
+  const contentType = res.headers.get("content-type") || "";
 
-  const headers = {
-    "Content-Type": "application/json",
+  const raw = await res.text();
+  if (!raw) return null;
+
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  }
+
+  return raw;
+}
+
+export async function apiFetch(
+  path,
+  { method = "GET", body, token, headers = {}, ...rest } = {},
+) {
+  const finalHeaders = {
+    Accept: "application/json",
+    ...headers,
   };
-  if (jwt) headers.Authorization = `Bearer ${jwt}`;
 
-  const res = await fetch(path, {
+  // Só coloca Content-Type quando tem body
+  if (body !== undefined) {
+    finalHeaders["Content-Type"] = "application/json";
+  }
+
+  const resolvedToken = token ?? getToken();
+  if (
+    resolvedToken &&
+    resolvedToken !== "null" &&
+    resolvedToken !== "undefined"
+  ) {
+    finalHeaders.Authorization = `Bearer ${resolvedToken}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
+    headers: finalHeaders,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...rest,
   });
 
-  // 204: sem body
-  if (res.status === 204) return null;
-
-  const contentType = res.headers.get("content-type") || "";
-  const hasJson = contentType.includes("application/json");
-
-  const data = hasJson ? await res.json().catch(() => null) : await res.text().catch(() => "");
+  const data = await parseResponse(res);
 
   if (!res.ok) {
     const msg =
-      (data && (data.message || data.error || data.detail)) ||
-      (typeof data === "string" && data) ||
-      `Erro HTTP ${res.status}`;
+      data && typeof data === "object" && data.message
+        ? data.message
+        : `Erro HTTP ${res.status}`;
 
     throw new ApiError(msg, res.status, data);
   }
 
   return data;
 }
+
+export const api = {
+  get: (path, opts) => apiFetch(path, { ...opts, method: "GET" }),
+  post: (path, body, opts) => apiFetch(path, { ...opts, method: "POST", body }),
+  put: (path, body, opts) => apiFetch(path, { ...opts, method: "PUT", body }),
+  del: (path, opts) => apiFetch(path, { ...opts, method: "DELETE" }),
+};

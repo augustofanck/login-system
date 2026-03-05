@@ -19,10 +19,6 @@ public class AdminUsersController {
         this.repo = repo;
     }
 
-    /**
-     * Paginação padrão do Spring:
-     *   /admin/users?page=0&size=20&sort=id,desc
-     */
     @GetMapping
     public ResponseEntity<Page<UserListItem>> list(Pageable pageable) {
         var page = repo.findAll(pageable)

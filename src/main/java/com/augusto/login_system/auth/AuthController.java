@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.authentication.BadCredentialsException;
 
 @RestController
 @RequestMapping("/auth")
@@ -42,7 +43,7 @@ public class AuthController {
                 new UsernamePasswordAuthenticationToken(email, req.password())
         );
 
-        var user = userRepo.findByEmail(email).orElseThrow();
+        var user = userRepo.findByEmail(email).orElseThrow(() -> new BadCredentialsException("Credenciais inválidas"));
         var token = jwtService.generate(user.getEmail(), user.getRole().name());
 
         return ResponseEntity.ok(new AuthResponse(token));

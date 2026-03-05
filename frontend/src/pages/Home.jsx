@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiFetch, ApiError } from "../api/client";
+import { ApiError } from "../api/client";
 import AppLayout from "../layouts/AppLayout";
 import { Card, CardContent } from "../components/ui/Card";
 import Alert from "../components/ui/Alert";
@@ -8,7 +8,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Link } from "react-router-dom";
 
 export default function Home() {
-  const { me } = useAuth();
+  const { me, apiFetchAuth } = useAuth();
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -16,8 +16,8 @@ export default function Home() {
     (async () => {
       setErr("");
       try {
-        const data = await apiFetch("/home");
-        setMsg(data);
+        const { hello } = await apiFetchAuth("/api/hello");
+        setMsg(hello);
       } catch (e) {
         setErr(e instanceof ApiError ? e.message : "Erro ao carregar /home.");
       }
@@ -30,16 +30,12 @@ export default function Home() {
         <Card className="md:col-span-2">
           <CardContent className="pt-6">
             <h2 className="text-xl font-bold text-slate-900">HOME</h2>
-            <p className="mt-1 text-slate-600 text-sm">
-              Mensagem vinda do backend protegido por JWT.
-            </p>
 
             <div className="mt-4">
               {err ? (
                 <Alert variant="error">{err}</Alert>
               ) : (
                 <div className="rounded-2xl bg-slate-900 text-white p-6">
-                  <p className="text-sm text-slate-300">Resposta do endpoint /home:</p>
                   <p className="mt-2 text-2xl font-bold">{msg || "Carregando..."}</p>
                 </div>
               )}
@@ -54,7 +50,7 @@ export default function Home() {
             <p className="text-xs text-slate-500">{me?.email}</p>
 
             <div className="mt-4 flex flex-col gap-2">
-              <Link to="/me/change-password">
+              <Link to="/change-password">
                 <Button variant="secondary" className="w-full">Trocar senha</Button>
               </Link>
               {me?.role === "ADMIN" && (
