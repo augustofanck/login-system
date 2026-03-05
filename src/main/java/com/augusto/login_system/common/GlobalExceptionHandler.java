@@ -20,7 +20,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
         Map<String, String> fields = new LinkedHashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(fe -> fields.put(fe.getField(), fe.getDefaultMessage()));
-        return build(HttpStatus.BAD_REQUEST, "Validation error", req, fields);
+        return build(HttpStatus.BAD_REQUEST, "Ocorreu um erro ao processar sua solicitação.", req, fields);
     }
 
     @ExceptionHandler(DuplicateDataException.class)

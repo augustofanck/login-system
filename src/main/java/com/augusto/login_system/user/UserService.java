@@ -27,13 +27,13 @@ public class UserService {
             throw new DuplicateDataException("CPF já cadastrado");
         }
 
-        User u = new User();
-        u.setName(req.name());
-        u.setEmail(email);
-        u.setCpf(req.cpf());
-        u.setRole(req.role());
-        u.setPasswordHash(encoder.encode(req.password()));
+        User user = new User();
+        user.setName(req.name());
+        user.setEmail(email);
+        user.setCpf(req.cpf());
+        user.setRole(req.role());
+        user.setPasswordHash(encoder.encode(req.password()));
 
-        repo.save(u);
+        repo.save(user);
     }
 }
